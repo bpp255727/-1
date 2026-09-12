@@ -7,9 +7,6 @@
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <!-- Leaflet MarkerCluster CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
   <style>
     /* ========================================== */
@@ -45,7 +42,9 @@
     /* 4. Popup Content */
     /* ========================================== */
     .popup-container { width: 280px; font-size: 13px; line-height: 1.5; color: #1f2937; }
-    .popup-img { width: 100%; height: 180px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; }
+    /* สไตล์ของภาพตัวอย่างให้ดูสวยงาม */
+    .popup-img { width: 100%; height: 180px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
+    .popup-img:hover { opacity: 0.85; }
     .popup-row { margin-bottom: 4px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; }
     .popup-actions { margin-top: 12px; display: flex; gap: 8px; }
     .popup-select { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
@@ -69,7 +68,7 @@
     <!-- แผนที่ -->
     <div id="map"></div>
 
-    <!-- แผงข้อมูลด้านข้าง (ไม่มี Filter) -->
+    <!-- แผงข้อมูลด้านข้าง -->
     <div class="info-panel">
       <div class="card">
         <strong>สถานะข้อมูล</strong>
@@ -87,10 +86,9 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
   <script>
-    // URL ของ Google Sheet (เปลี่ยน pubhtml เป็น pub?output=csv เพื่อให้โค้ดอ่านง่าย)
+    // URL ของ Google Sheet
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQL0YNuJSi1J64Q8_upur96DOxELqmUlOKIM3CJxry4uuROuZz5sN08kaS-XJr7xphKJdMzZ1g64KRq/pub?output=csv&gid=0';
     
     // URL ของ Google Apps Script สำหรับรับค่าการอัปเดต (ตั้งค่าในภายหลัง)
@@ -99,7 +97,6 @@
     let allData = [];
     let headers = [];
     let mapLayerGroup;
-    let markerEntries = [];
 
     // 1. ตั้งค่าแผนที่
     const map = L.map('map').setView([13.7367, 100.5231], 10);
@@ -111,8 +108,7 @@
       "แผนที่ดาวเทียม (Satellite)": satelliteLayer
     }, null, { collapsed: false }).addTo(map);
 
-    mapLayerGroup = L.markerClusterGroup({ maxClusterRadius: 50 });
-    mapLayerGroup.addTo(map);
+    mapLayerGroup = L.featureGroup().addTo(map);
 
     // 2. ดึงข้อมูลจาก Sheet
     async function loadData() {
@@ -128,7 +124,6 @@
 
         headers = rows[0].map(h => h.trim().toLowerCase());
         
-        // แปลง Array 2 มิติ เป็น Array of Objects
         allData = rows.slice(1).map(row => {
           let obj = {};
           headers.forEach((header, index) => {
@@ -145,19 +140,29 @@
       }
     }
 
+    // ฟังก์ชันแปลงลิงก์ Google Drive ให้เป็นรูประบบ Thumbnail
+    function getDriveThumbnailUrl(url) {
+      if (!url) return '';
+      // ค้นหา ID จาก URL ของ Google Drive
+      const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        // ใช้ Endpoint ของ Google สำหรับดึงรูปตรงๆ (sz=w400 คือปรับความกว้าง 400px ให้เหมาะกับพรีวิว)
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w400`;
+      }
+      return url; // ถ้าไม่ใช่ลิงก์ Drive คืนค่าเดิม
+    }
+
     // 3. ฟังก์ชันสร้างหมุดและรายการ
     function renderMapAndList() {
       mapLayerGroup.clearLayers();
       const itemsContainer = document.getElementById('itemsContainer');
       itemsContainer.innerHTML = '';
-      markerEntries = [];
       let count = 0;
 
       allData.forEach((row, index) => {
         const lat = parseFloat(row['latitude']);
         const lon = parseFloat(row['longitude']);
         
-        // ถ้าไม่มีพิกัด ข้ามไป
         if (isNaN(lat) || isNaN(lon)) return;
         count++;
 
@@ -169,12 +174,13 @@
         const surveyor = row['line_display_name'] || 'ไม่ระบุ';
         const timestamp = row['image_timestamp'] || '-';
 
-        // คำนวณสีหมุดและองศาลูกศร
+        // แปลงภาพ
+        const thumbUrl = getDriveThumbnailUrl(imageUrl);
+
         const isVerified = status.includes('ตรวจสอบแล้ว');
         const markerColor = isVerified ? '#16a34a' : (status.includes('ผิดพลาด') ? '#d97706' : '#ef4444');
         const rotation = extractRotation(direction);
 
-        // สร้าง Custom Marker
         const iconHtml = `
           <div class="directional-marker">
             <div class="marker-arrow" style="transform: rotate(${rotation}deg); color: ${isVerified ? '#16a34a' : '#2563eb'};"></div>
@@ -184,10 +190,10 @@
         const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [36, 36], iconAnchor: [18, 18] });
         const marker = L.marker([lat, lon], { icon: customIcon });
 
-        // สร้าง HTML สำหรับ Popup
+        // สร้าง HTML สำหรับ Popup (นำรูป Thumbnail มาแสดง และคลิกเพื่อเปิดรูปเต็ม)
         const popupContent = `
           <div class="popup-container">
-            ${imageUrl ? `<a href="${imageUrl}" target="_blank"><img src="${imageUrl}" class="popup-img" alt="ภาพหน้างาน"></a>` : ''}
+            ${imageUrl ? `<a href="${imageUrl}" target="_blank" title="คลิกเพื่อดูภาพขนาดเต็ม"><img src="${thumbUrl}" class="popup-img" alt="ภาพหน้างาน"></a>` : ''}
             <div class="popup-row"><strong>รหัสเสา:</strong> ${escapeHtml(poleId)}</div>
             <div class="popup-row"><strong>ผู้สำรวจ:</strong> ${escapeHtml(surveyor)}</div>
             <div class="popup-row"><strong>เวลา:</strong> ${escapeHtml(timestamp)}</div>
@@ -205,9 +211,7 @@
         `;
 
         marker.bindPopup(popupContent).addTo(mapLayerGroup);
-        markerEntries.push({ marker, lat, lon });
 
-        // สร้างรายการด้านขวามือ
         const listItem = document.createElement('div');
         listItem.className = 'summary-item';
         listItem.style.borderLeft = `5px solid ${markerColor}`;
@@ -216,11 +220,9 @@
           <div class="desc">เวลา: ${escapeHtml(timestamp)}<br>สถานะ: <b>${escapeHtml(status)}</b></div>
         `;
         
-        // กดที่รายการแล้วซูมไปที่หมุด
         listItem.addEventListener('click', () => {
-          mapLayerGroup.zoomToShowLayer(marker, () => {
-            marker.openPopup();
-          });
+          map.setView(marker.getLatLng(), 18);
+          marker.openPopup();
         });
         
         itemsContainer.appendChild(listItem);
@@ -228,14 +230,12 @@
 
       document.getElementById('statusCount').innerText = `พบข้อมูลที่มีพิกัด: ${count} รายการ`;
 
-      // ซูมให้เห็นหมุดทั้งหมด
       if (count > 0) {
-        const group = new L.featureGroup(markerEntries.map(e => e.marker));
-        map.fitBounds(group.getBounds(), { padding: [30, 30] });
+        map.fitBounds(mapLayerGroup.getBounds(), { padding: [30, 30] });
       }
     }
 
-    // 4. ฟังก์ชันอัปเดตสถานะ (จำลองการส่งค่ากลับ)
+    // 4. ฟังก์ชันอัปเดตสถานะ (จำลอง)
     window.updateStatus = async function(rowId) {
       const selectElement = document.getElementById(`status-${rowId}`);
       const newStatus = selectElement.value;
@@ -245,25 +245,12 @@
       btn.disabled = true;
 
       try {
-        // [ส่วนที่ต้องเปิดใช้งานจริงเมื่อมี GAS_API_URL]
-        /*
-        const response = await fetch(GAS_API_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'updateStatus', rowId: rowId, status: newStatus })
-        });
-        const result = await response.json();
-        */
-        
         // จำลองสถานการณ์สำเร็จ
         setTimeout(() => {
           alert('อัปเดตสถานะเป็น: ' + newStatus);
           btn.innerText = 'อัปเดต';
           btn.disabled = false;
-          
-          // โหลดข้อมูลใหม่เพื่อรีเฟรชสีหมุด (ถ้าเชื่อมต่อ API จริง ควรเรียก loadData() อีกรอบ)
-          // loadData(); 
         }, 600);
-
       } catch (error) {
         alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
         btn.innerText = 'อัปเดต';
@@ -305,3 +292,4 @@
   </script>
 </body>
 </html>
+```EOF
