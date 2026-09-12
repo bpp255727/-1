@@ -245,9 +245,12 @@
       btn.disabled = true;
 
       try {
-        // เอาเครื่องหมายคอมเมนต์ (/* และ */) ออก และเปิดใช้งาน fetch
-        const response = await fetch('https://script.google.com/macros/s/AKfycbzgvkdpjOHbbrDhdLZUmeOnM4iwpxR-v6B---6GwCM1O3l8uGn_o-dJ43j1WEVmI4cLvg/exec', {
+        const response = await fetch('ใส่_URL_WEB_APP_ที่ได้จาก_APPS_SCRIPT_ที่นี่', {
           method: 'POST',
+          redirect: 'follow', // บังคับให้ตาม Redirect ของ Google ไป
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8", // ต้องใช้ text/plain เพื่อหลบระบบป้องกัน CORS
+          },
           body: JSON.stringify({ action: 'updateStatus', rowId: rowId, status: newStatus })
         });
         
@@ -255,21 +258,19 @@
         
         if (result.success) {
           alert('อัปเดตสถานะเป็น: ' + newStatus);
-          
-          // โหลดข้อมูลใหม่เพื่อรีเฟรชสีหมุดอัตโนมัติ
-          loadData(); 
+          location.reload(); // รีเฟรชหน้าเพื่อโหลดข้อมูลและสีหมุดใหม่
         } else {
           alert('เกิดข้อผิดพลาด: ' + result.error);
         }
 
       } catch (error) {
+        console.error(error);
         alert('เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย');
       } finally {
         btn.innerText = 'อัปเดต';
         btn.disabled = false;
       }
     };
-
 
     
 
