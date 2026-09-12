@@ -39,12 +39,13 @@
     .marker-arrow::before { content: '▲'; font-size: 20px; color: #2563eb; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); text-shadow: 0 0 2px white; }
     
     /* ========================================== */
-    /* 4. Popup Content */
+    /* 4. Popup Content (ขยายขนาดใหญ่ขึ้นและจัดระเบียบ) */
     /* ========================================== */
-    .popup-container { width: 280px; font-size: 13px; line-height: 1.5; color: #1f2937; }
-    /* สไตล์ของภาพตัวอย่างให้ดูสวยงาม */
-    .popup-img { width: 100%; height: 180px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
+    .leaflet-popup-content { width: 360px !important; max-height: 420px; overflow-y: auto; }
+    .popup-container { font-size: 13px; line-height: 1.5; color: #1f2937; }
+    .popup-img { width: 100%; height: 220px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
     .popup-img:hover { opacity: 0.85; }
+    .popup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-bottom: 8px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
     .popup-row { margin-bottom: 4px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; }
     .popup-actions { margin-top: 12px; display: flex; gap: 8px; }
     .popup-select { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
@@ -91,7 +92,7 @@
     // URL ของ Google Sheet
     const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQL0YNuJSi1J64Q8_upur96DOxELqmUlOKIM3CJxry4uuROuZz5sN08kaS-XJr7xphKJdMzZ1g64KRq/pub?output=csv&gid=0';
     
-    // URL ของ Google Apps Script สำหรับรับค่าการอัปเดต (ตั้งค่าในภายหลัง)
+    // URL ของ Google Apps Script สำหรับรับค่าการอัปเดต
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzgvkdpjOHbbrDhdLZUmeOnM4iwpxR-v6B---6GwCM1O3l8uGn_o-dJ43j1WEVmI4cLvg/exec';
 
     let allData = [];
@@ -122,11 +123,12 @@
           return;
         }
 
-        headers = rows[0].map(h => h.trim().toLowerCase());
+        headers = rows[0].map(h => h.trim()); // เก็บชื่อหัวคอลัมน์แบบตัวพิมพ์เดิมไว้แสดงผล
+        const lowerHeaders = headers.map(h => h.toLowerCase()); // สำหรับค้นหา Key
         
         allData = rows.slice(1).map(row => {
           let obj = {};
-          headers.forEach((header, index) => {
+          lowerHeaders.forEach((header, index) => {
             obj[header] = row[index] || '';
           });
           return obj;
@@ -143,13 +145,11 @@
     // ฟังก์ชันแปลงลิงก์ Google Drive ให้เป็นรูประบบ Thumbnail
     function getDriveThumbnailUrl(url) {
       if (!url) return '';
-      // ค้นหา ID จาก URL ของ Google Drive
       const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
-        // ใช้ Endpoint ของ Google สำหรับดึงรูปตรงๆ (sz=w400 คือปรับความกว้าง 400px ให้เหมาะกับพรีวิว)
-        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w400`;
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w500`;
       }
-      return url; // ถ้าไม่ใช่ลิงก์ Drive คืนค่าเดิม
+      return url;
     }
 
     // 3. ฟังก์ชันสร้างหมุดและรายการ
@@ -174,7 +174,6 @@
         const surveyor = row['line_display_name'] || 'ไม่ระบุ';
         const timestamp = row['image_timestamp'] || '-';
 
-        // แปลงภาพ
         const thumbUrl = getDriveThumbnailUrl(imageUrl);
 
         const isVerified = status.includes('ตรวจสอบแล้ว');
@@ -190,15 +189,24 @@
         const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [36, 36], iconAnchor: [18, 18] });
         const marker = L.marker([lat, lon], { icon: customIcon });
 
-        // สร้าง HTML สำหรับ Popup (นำรูป Thumbnail มาแสดง และคลิกเพื่อเปิดรูปเต็ม)
+        // รวบรวมข้อมูลทุกคอลัมน์มาแสดงในรูปแบบ Grid
+        let allFieldsHtml = '<div class="popup-grid">';
+        headers.forEach(origHeader => {
+          const lowerKey = origHeader.toLowerCase();
+          // ซ่อนฟิลด์ที่ไม่จำเป็นต้องแสดงซ้ำซ้อนในตารางกริด
+          if (['row.id', 'image_url', 'latitude', 'longitude', 'ocr_raw_text'].includes(lowerKey)) return;
+          const val = row[lowerKey] || '-';
+          allFieldsHtml += `<div><strong>${escapeHtml(origHeader)}:</strong> ${escapeHtml(val)}</div>`;
+        });
+        allFieldsHtml += '</div>';
+
+        // สร้าง HTML สำหรับ Popup (ขนาดใหญ่ขึ้นและแสดงข้อมูลทุกช่อง)
         const popupContent = `
           <div class="popup-container">
             ${imageUrl ? `<a href="${imageUrl}" target="_blank" title="คลิกเพื่อดูภาพขนาดเต็ม"><img src="${thumbUrl}" class="popup-img" alt="ภาพหน้างาน"></a>` : ''}
-            <div class="popup-row"><strong>รหัสเสา:</strong> ${escapeHtml(poleId)}</div>
-            <div class="popup-row"><strong>ผู้สำรวจ:</strong> ${escapeHtml(surveyor)}</div>
-            <div class="popup-row"><strong>เวลา:</strong> ${escapeHtml(timestamp)}</div>
-            <div class="popup-row"><strong>ทิศทาง:</strong> ${escapeHtml(direction)}</div>
             
+            ${allFieldsHtml}
+
             <div class="popup-actions">
               <select id="status-${rowId}" class="popup-select">
                 <option value="รอ admin ตรวจสอบ" ${status === 'รอ admin ตรวจสอบ' ? 'selected' : ''}>รอ admin ตรวจสอบ</option>
@@ -217,7 +225,7 @@
         listItem.style.borderLeft = `5px solid ${markerColor}`;
         listItem.innerHTML = `
           <div class="title">ผู้สำรวจ: ${escapeHtml(surveyor)}</div>
-          <div class="desc">เวลา: ${escapeHtml(timestamp)}<br>สถานะ: <b>${escapeHtml(status)}</b></div>
+          <div class="desc">เวลา: ${escapeHtml(timestamp)}<br>สถานะ: <b id="text-status-${rowId}">${escapeHtml(status)}</b></div>
         `;
         
         listItem.addEventListener('click', () => {
@@ -229,27 +237,23 @@
       });
 
       document.getElementById('statusCount').innerText = `พบข้อมูลที่มีพิกัด: ${count} รายการ`;
-
-      if (count > 0) {
-        map.fitBounds(mapLayerGroup.getBounds(), { padding: [30, 30] });
-      }
     }
 
-// 4. ฟังก์ชันอัปเดตสถานะ (เชื่อมต่อ API จริง)
+    // 4. ฟังก์ชันอัปเดตสถานะแบบ Real-time (ไม่รีโหลดหน้าเว็บ เปลี่ยนสีหมุดและสถานะทันที)
     window.updateStatus = async function(rowId) {
       const selectElement = document.getElementById(`status-${rowId}`);
       const newStatus = selectElement.value;
       const btn = selectElement.nextElementSibling;
       
-      btn.innerText = 'รอ...';
+      btn.innerText = 'กำลังบันทึก...';
       btn.disabled = true;
 
       try {
-        const response = await fetch('https://script.google.com/macros/s/AKfycbzgvkdpjOHbbrDhdLZUmeOnM4iwpxR-v6B---6GwCM1O3l8uGn_o-dJ43j1WEVmI4cLvg/exec', {
+        const response = await fetch(GAS_API_URL, {
           method: 'POST',
-          redirect: 'follow', // บังคับให้ตาม Redirect ของ Google ไป
+          redirect: 'follow',
           headers: {
-            "Content-Type": "text/plain;charset=utf-8", // ต้องใช้ text/plain เพื่อหลบระบบป้องกัน CORS
+            "Content-Type": "text/plain;charset=utf-8",
           },
           body: JSON.stringify({ action: 'updateStatus', rowId: rowId, status: newStatus })
         });
@@ -257,22 +261,31 @@
         const result = await response.json();
         
         if (result.success) {
-          alert('อัปเดตสถานะเป็น: ' + newStatus);
-          location.reload(); // รีเฟรชหน้าเพื่อโหลดข้อมูลและสีหมุดใหม่
+          // อัปเดตข้อมูลในหน่วยความจำ (allData) โดยไม่ต้องโหลด CSV ใหม่จาก Google Sheet ทันที
+          const targetRow = allData.find(item => item['row.id'] === rowId);
+          if (targetRow) {
+            targetRow['status'] = newStatus;
+          }
+
+          // เรนเดอร์แผนที่และรายการใหม่เพื่อเปลี่ยนสีหมุดและข้อความทันที
+          renderMapAndList();
+
+          // แจ้งเตือนเบาๆ หรือให้ปุ่มกลับมาปกติ
+          btn.innerText = 'สำเร็จ!';
+          setTimeout(() => { btn.innerText = 'อัปเดต'; btn.disabled = false; }, 1500);
         } else {
           alert('เกิดข้อผิดพลาด: ' + result.error);
+          btn.innerText = 'อัปเดต';
+          btn.disabled = false;
         }
 
       } catch (error) {
         console.error(error);
         alert('เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย');
-      } finally {
         btn.innerText = 'อัปเดต';
         btn.disabled = false;
       }
     };
-
-    
 
     // 5. Utilities
     function extractRotation(directionStr) {
@@ -308,4 +321,3 @@
   </script>
 </body>
 </html>
-```EOF
