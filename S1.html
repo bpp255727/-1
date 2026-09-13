@@ -39,15 +39,14 @@
     .marker-arrow::before { content: '▲'; font-size: 20px; color: #2563eb; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); text-shadow: 0 0 2px white; }
     
     /* ========================================== */
-    /* 4. Popup Content (ขยายขนาดใหญ่ขึ้นและจัดระเบียบ) */
+    /* 4. Popup Content (ขยายกว้างขึ้น ไม่มีตัวเลื่อน) */
     /* ========================================== */
-    .leaflet-popup-content { width: 360px !important; max-height: 420px; overflow-y: auto; }
-    .popup-container { font-size: 13px; line-height: 1.5; color: #1f2937; }
-    .popup-img { width: 100%; height: 220px; object-fit: cover; border-radius: 6px; margin-bottom: 10px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
+    .leaflet-popup-content { width: 400px !important; }
+    .popup-container { font-size: 12px; line-height: 1.4; color: #1f2937; }
+    .popup-img { width: 100%; height: 160px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
     .popup-img:hover { opacity: 0.85; }
-    .popup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; margin-bottom: 8px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
-    .popup-row { margin-bottom: 4px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 4px; }
-    .popup-actions { margin-top: 12px; display: flex; gap: 8px; }
+    .popup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-bottom: 8px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .popup-actions { margin-top: 8px; display: flex; gap: 8px; }
     .popup-select { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
     .popup-btn { background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
     .popup-btn:hover { background: #15803d; }
@@ -123,8 +122,8 @@
           return;
         }
 
-        headers = rows[0].map(h => h.trim()); // เก็บชื่อหัวคอลัมน์แบบตัวพิมพ์เดิมไว้แสดงผล
-        const lowerHeaders = headers.map(h => h.toLowerCase()); // สำหรับค้นหา Key
+        headers = rows[0].map(h => h.trim());
+        const lowerHeaders = headers.map(h => h.toLowerCase());
         
         allData = rows.slice(1).map(row => {
           let obj = {};
@@ -167,8 +166,6 @@
         count++;
 
         const rowId = row['row.id'];
-        const poleId = row['pole_id'] || '-';
-        const direction = row['direction'] || '0';
         const status = row['status'] || 'รอ admin ตรวจสอบ';
         const imageUrl = row['image_url'] || '';
         const surveyor = row['line_display_name'] || 'ไม่ระบุ';
@@ -178,7 +175,7 @@
 
         const isVerified = status.includes('ตรวจสอบแล้ว');
         const markerColor = isVerified ? '#16a34a' : (status.includes('ผิดพลาด') ? '#d97706' : '#ef4444');
-        const rotation = extractRotation(direction);
+        const rotation = extractRotation(row['direction'] || '0');
 
         const iconHtml = `
           <div class="directional-marker">
@@ -189,23 +186,31 @@
         const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [36, 36], iconAnchor: [18, 18] });
         const marker = L.marker([lat, lon], { icon: customIcon });
 
-        // รวบรวมข้อมูลทุกคอลัมน์มาแสดงในรูปแบบ Grid
-        let allFieldsHtml = '<div class="popup-grid">';
-        headers.forEach(origHeader => {
-          const lowerKey = origHeader.toLowerCase();
-          // ซ่อนฟิลด์ที่ไม่จำเป็นต้องแสดงซ้ำซ้อนในตารางกริด
-          if (['row.id', 'image_url', 'latitude', 'longitude', 'ocr_raw_text'].includes(lowerKey)) return;
-          const val = row[lowerKey] || '-';
-          allFieldsHtml += `<div><strong>${escapeHtml(origHeader)}:</strong> ${escapeHtml(val)}</div>`;
-        });
-        allFieldsHtml += '</div>';
+        // ดึงค่าตามฟิลด์ที่คุณต้องการกำหนดโดยเฉพาะ
+        const createdAt = row['created_at'] || '-';
+        const lastUpdated = row['last_updated'] || '-';
+        const lineDisplayName = row['line_display_name'] || '-';
+        const userNote = row['user_note'] || '-';
+        const poleId = row['pole_id'] || '-';
+        const direction = row['direction'] || '-';
+        const assetCondition = row['asset_condition'] || '-';
+        const adminNote = row['admin_note'] || '-';
 
-        // สร้าง HTML สำหรับ Popup (ขนาดใหญ่ขึ้นและแสดงข้อมูลทุกช่อง)
+        // สร้าง HTML สำหรับ Popup แสดงค่าที่ระบุครบถ้วน
         const popupContent = `
           <div class="popup-container">
             ${imageUrl ? `<a href="${imageUrl}" target="_blank" title="คลิกเพื่อดูภาพขนาดเต็ม"><img src="${thumbUrl}" class="popup-img" alt="ภาพหน้างาน"></a>` : ''}
             
-            ${allFieldsHtml}
+            <div class="popup-grid">
+              <div><strong>created_at:</strong> ${escapeHtml(createdAt)}</div>
+              <div><strong>last_updated:</strong> ${escapeHtml(lastUpdated)}</div>
+              <div><strong>line_display_name:</strong> ${escapeHtml(lineDisplayName)}</div>
+              <div><strong>user_note:</strong> ${escapeHtml(userNote)}</div>
+              <div><strong>pole_id:</strong> ${escapeHtml(poleId)}</div>
+              <div><strong>direction:</strong> ${escapeHtml(direction)}</div>
+              <div><strong>asset_condition:</strong> ${escapeHtml(assetCondition)}</div>
+              <div><strong>admin_note:</strong> ${escapeHtml(adminNote)}</div>
+            </div>
 
             <div class="popup-actions">
               <select id="status-${rowId}" class="popup-select">
@@ -225,7 +230,7 @@
         listItem.style.borderLeft = `5px solid ${markerColor}`;
         listItem.innerHTML = `
           <div class="title">ผู้สำรวจ: ${escapeHtml(surveyor)}</div>
-          <div class="desc">เวลา: ${escapeHtml(timestamp)}<br>สถานะ: <b id="text-status-${rowId}">${escapeHtml(status)}</b></div>
+          <div class="desc">เวลา: ${escapeHtml(timestamp)}<br>สถานะ: <b>${escapeHtml(status)}</b></div>
         `;
         
         listItem.addEventListener('click', () => {
@@ -239,7 +244,7 @@
       document.getElementById('statusCount').innerText = `พบข้อมูลที่มีพิกัด: ${count} รายการ`;
     }
 
-    // 4. ฟังก์ชันอัปเดตสถานะแบบ Real-time (ไม่รีโหลดหน้าเว็บ เปลี่ยนสีหมุดและสถานะทันที)
+    // 4. ฟังก์ชันอัปเดตสถานะแบบ Real-time
     window.updateStatus = async function(rowId) {
       const selectElement = document.getElementById(`status-${rowId}`);
       const newStatus = selectElement.value;
@@ -261,16 +266,13 @@
         const result = await response.json();
         
         if (result.success) {
-          // อัปเดตข้อมูลในหน่วยความจำ (allData) โดยไม่ต้องโหลด CSV ใหม่จาก Google Sheet ทันที
           const targetRow = allData.find(item => item['row.id'] === rowId);
           if (targetRow) {
             targetRow['status'] = newStatus;
           }
 
-          // เรนเดอร์แผนที่และรายการใหม่เพื่อเปลี่ยนสีหมุดและข้อความทันที
           renderMapAndList();
 
-          // แจ้งเตือนเบาๆ หรือให้ปุ่มกลับมาปกติ
           btn.innerText = 'สำเร็จ!';
           setTimeout(() => { btn.innerText = 'อัปเดต'; btn.disabled = false; }, 1500);
         } else {
