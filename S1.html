@@ -38,21 +38,25 @@
     .marker-arrow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transition: transform 0.3s ease; }
     .marker-arrow::before { content: '▲'; font-size: 20px; color: #2563eb; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); text-shadow: 0 0 2px white; }
     
+  /* ========================================== */
+    /* 4. Popup Content (ขยายกว้างและสูงขึ้น ไม่มีตัวเลื่อน) */
     /* ========================================== */
-    /* 4. Popup Content (ขยายกว้างขึ้น ไม่มีตัวเลื่อน) */
-    /* ========================================== */
-    .leaflet-popup-content { width: 480px !important,min-height: 320px; }
-    .popup-container { font-size: 12px; line-height: 1.4; color: #1f2937; }
-    .popup-img { width: 100%; height: 260px; object-fit: contain; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
+    .leaflet-popup-content { width: 480px !important; min-height: 320px; }
+    .popup-container { font-size: 12px; line-height: 1.4; color: #1f2937; display: flex; flex-direction: column; height: 100%; }
+    
+    /* ปรับรูปภาพให้เต็มความกว้าง และแสดงผลแบบเต็มรูปโดยไม่เสียสัดส่วน (สามารถเปลี่ยนเป็น contain ได้ถ้าต้องการให้เห็นครบทุกส่วนของภาพ) */
+    .popup-img { width: 100%; height: 220px; object-fit: contain; background-color: #f1f5f9; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
     .popup-img:hover { opacity: 0.85; }
+    
     .popup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-bottom: 8px; background: #f8fafc; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0; }
-    .popup-actions { margin-top: 8px; display: flex; gap: 8px; }
+    .popup-actions { margin-top: auto; display: flex; gap: 8px; }
     .popup-select { flex: 1; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 13px; }
     .popup-btn { background: #16a34a; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
     .popup-btn:hover { background: #15803d; }
     .popup-btn:disabled { background: #94a3b8; cursor: not-allowed; }
 
     @media (max-width: 768px) {
+      .leaflet-popup-content { width: 90vw !important; }
       .content { flex-direction: column; }
       .info-panel { width: 100%; height: 300px; border-left: none; border-top: 1px solid #e5e7eb; }
     }
