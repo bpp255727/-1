@@ -12,19 +12,28 @@
     /* ========================================== */
     /* 1. Base Styles & Layout */
     /* ========================================== */
-    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; background: #f5f7fb; display: flex; flex-direction: column; }
-    .toolbar { padding: 12px 16px; background: #2563eb; color: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
+    /* ป้องกันหน้าหลักเลื่อน (overflow: hidden) */
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; background: #f5f7fb; display: flex; flex-direction: column; overflow: hidden; }
+    .toolbar { padding: 12px 16px; background: #2563eb; color: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); flex-shrink: 0; }
     .toolbar h1 { margin: 0; font-size: 18px; }
-    .content { flex: 1; display: flex; min-height: 0; }
+    .content { flex: 1; display: flex; min-height: 0; overflow: hidden; }
     #map { flex: 1; min-height: 360px; }
     
     /* ========================================== */
     /* 2. Side Panel */
     /* ========================================== */
-    .info-panel { width: 320px; background: #ffffff; border-left: 1px solid #e5e7eb; padding: 16px; display: flex; flex-direction: column; box-sizing: border-box; }
-    .card { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 14px; }
+    .info-panel { width: 320px; background: #ffffff; border-left: 1px solid #e5e7eb; padding: 16px; display: flex; flex-direction: column; box-sizing: border-box; height: 100%; overflow: hidden; }
+    .card { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 14px; flex-shrink: 0; }
     .card strong { display: block; margin-bottom: 8px; color: #1d4ed8; }
-    .items-container { flex: 1; overflow-y: auto; }
+    
+    /* สไตล์สำหรับกล่องรายการเพื่อให้มี Scrollbar แยกต่างหาก */
+    .items-container { flex: 1; overflow-y: auto; padding-right: 4px; padding-bottom: 16px; }
+    
+    /* ปรับแต่งหน้าตา Scrollbar ให้ดูสะอาดตา (สำหรับ Chrome/Safari) */
+    .items-container::-webkit-scrollbar { width: 6px; }
+    .items-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .items-container::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
     .summary-item { margin-bottom: 8px; padding: 10px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; transition: background 0.2s ease; }
     .summary-item:hover { background: #eef2ff; border-color: #c7d2fe; }
     .summary-item .title { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
@@ -38,13 +47,12 @@
     .marker-arrow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; transition: transform 0.3s ease; }
     .marker-arrow::before { content: '▲'; font-size: 20px; color: #2563eb; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); text-shadow: 0 0 2px white; }
     
-  /* ========================================== */
+    /* ========================================== */
     /* 4. Popup Content (ขยายกว้างและสูงขึ้น ไม่มีตัวเลื่อน) */
     /* ========================================== */
     .leaflet-popup-content { width: 560px !important; min-height: 480px; }
     .popup-container { font-size: 14px; line-height: 1.4; color: #1f2937; display: flex; flex-direction: column; height: 100%; }
     
-    /* ปรับรูปภาพให้เต็มความกว้าง และแสดงผลแบบเต็มรูปโดยไม่เสียสัดส่วน (สามารถเปลี่ยนเป็น contain ได้ถ้าต้องการให้เห็นครบทุกส่วนของภาพ) */
     .popup-img { width: 100%; height: 400px; object-fit: contain; background-color: #f1f5f9; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb; cursor: pointer; transition: opacity 0.2s; }
     .popup-img:hover { opacity: 0.85; }
     
@@ -57,15 +65,15 @@
 
     @media (max-width: 768px) {
       .leaflet-popup-content { width: 90vw !important; }
-      .content { flex-direction: column; }
-      .info-panel { width: 100%; height: 300px; border-left: none; border-top: 1px solid #e5e7eb; }
+      .content { flex-direction: column; overflow: auto; }
+      .info-panel { width: 100%; height: 400px; border-left: none; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
     }
   </style>
 </head>
 <body>
 
   <div class="toolbar">
-    <h1>ระบบตรวจสอบงานสำรวจเสาไฟ 2569</h1>
+    <h1>สำรวจงานปรับปรุงระบบจำหน่าย 2569</h1>
   </div>
 
   <div class="content">
@@ -79,7 +87,8 @@
         <div id="statusCount">กำลังโหลดข้อมูล...</div>
       </div>
       
-      <div class="card" style="flex: 1; display: flex; flex-direction: column; padding-bottom: 0;">
+      <!-- เพิ่ม min-height: 0 และ overflow: hidden ให้ card นี้เพื่อบังคับให้ลูก(items-container) เลื่อนได้ -->
+      <div class="card" style="flex: 1; display: flex; flex-direction: column; padding-bottom: 0; min-height: 0; overflow: hidden;">
         <strong>รายการที่ส่งมา</strong>
         <div id="itemsContainer" class="items-container">
           <!-- รายการจะถูกแทรกที่นี่ -->
@@ -129,10 +138,11 @@
         headers = rows[0].map(h => h.trim());
         const lowerHeaders = headers.map(h => h.toLowerCase());
         
-        allData = rows.slice(1).map(row => {
-          let obj = {};
-          lowerHeaders.forEach((header, index) => {
-            obj[header] = row[index] || '';
+        allData = rows.slice(1).map((row, index) => {
+          // เก็บ originalIndex ไว้สำหรับการจัดเรียง (บรรทัดล่าสุด จะมีเลข index มากสุด)
+          let obj = { originalIndex: index }; 
+          lowerHeaders.forEach((header, colIndex) => {
+            obj[header] = row[colIndex] || '';
           });
           return obj;
         });
@@ -161,6 +171,23 @@
       const itemsContainer = document.getElementById('itemsContainer');
       itemsContainer.innerHTML = '';
       let count = 0;
+
+      // จัดเรียงข้อมูล (Sorting) ก่อนนำไปแสดงผล
+      allData.sort((a, b) => {
+        const aStatus = a['status'] || '';
+        const bStatus = b['status'] || '';
+        
+        // 1. ให้ความสำคัญกับ "รอ admin ตรวจสอบ" ขึ้นก่อน (ค่า 0 ขึ้นก่อน ค่า 1)
+        const aIsWaiting = aStatus.includes('รอ admin ตรวจสอบ') ? 0 : 1;
+        const bIsWaiting = bStatus.includes('รอ admin ตรวจสอบ') ? 0 : 1;
+
+        if (aIsWaiting !== bIsWaiting) {
+          return aIsWaiting - bIsWaiting; 
+        }
+
+        // 2. ถ้าสถานะเท่ากัน ให้เอาข้อมูลใหม่ล่าสุดขึ้นก่อน (originalIndex มากกว่า ขึ้นก่อน)
+        return b.originalIndex - a.originalIndex;
+      });
 
       allData.forEach((row, index) => {
         const lat = parseFloat(row['latitude']);
@@ -275,10 +302,16 @@
             targetRow['status'] = newStatus;
           }
 
+          // วาดแผนที่และรายการใหม่ (หมุดและรายการจะเปลี่ยนสี และจัดเรียงลำดับใหม่ทันที)
           renderMapAndList();
 
-          btn.innerText = 'สำเร็จ!';
-          setTimeout(() => { btn.innerText = 'อัปเดต'; btn.disabled = false; }, 1500);
+          // เด้งกลับไปโฟกัสที่หมุดเดิมพร้อมโชว์ Popup อีกครั้งเพื่อให้ดูต่อเนื่องได้
+          const updatedTargetRow = allData.find(item => item['row.id'] === rowId);
+          if(updatedTargetRow && !isNaN(parseFloat(updatedTargetRow['latitude']))) {
+            const latLng = [parseFloat(updatedTargetRow['latitude']), parseFloat(updatedTargetRow['longitude'])];
+            map.setView(latLng, map.getZoom());
+          }
+
         } else {
           alert('เกิดข้อผิดพลาด: ' + result.error);
           btn.innerText = 'อัปเดต';
